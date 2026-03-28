@@ -55,6 +55,76 @@ For better video and subtitle support in modern sites, these runtime packages ar
 sudo apt install gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-plugins-ugly
 ```
 
+## Linux Runner Setup
+
+Linux apps may need one small runner change so `WebViewWidget` can be hosted in
+a `GtkOverlay`.
+
+Edit:
+
+```text
+linux/runner/my_application.cc
+```
+
+Add:
+
+```cc
+static void first_frame_cb(MyApplication* self, FlView* view) {
+  gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+}
+```
+
+Then replace the default runner part:
+
+```cpp
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  fl_dart_project_set_dart_entrypoint_arguments(
+      project, self->dart_entrypoint_arguments);
+
+  gtk_widget_show(GTK_WIDGET(window));
+
+  FlView* view = fl_view_new(project);
+  gtk_widget_show(GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
+
+  fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+```
+
+with:
+
+```cpp
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  fl_dart_project_set_dart_entrypoint_arguments(
+      project, self->dart_entrypoint_arguments);
+
+  FlView* view = fl_view_new(project);
+  gtk_widget_show(GTK_WIDGET(view));
+
+  GtkWidget* overlay = gtk_overlay_new();
+  gtk_widget_show(overlay);
+  gtk_container_add(GTK_CONTAINER(overlay), GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(window), overlay);
+
+  g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb), self);
+  gtk_widget_realize(GTK_WIDGET(view));
+```
+
+Do not move `FlView* view = fl_view_new(project);` above the `project`
+initialization.
+
+Optional but recommended:
+
+```cc
+gtk_widget_set_hexpand(GTK_WIDGET(view), TRUE);
+gtk_widget_set_vexpand(GTK_WIDGET(view), TRUE);
+```
+
+The important part is:
+
+```text
+GtkWindow -> GtkOverlay -> FlView
+```
+
 ## Example
 
 ```dart

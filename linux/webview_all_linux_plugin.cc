@@ -223,6 +223,14 @@ static GtkOverlay* ensure_overlay(WebviewAllLinuxPlugin* self) {
     return self->overlay;
   }
 
+  GtkWidget* toplevel = gtk_widget_get_toplevel(view_widget);
+  const gboolean hide_toplevel =
+      toplevel != nullptr && GTK_IS_WIDGET(toplevel) &&
+      gtk_widget_get_visible(toplevel);
+  if (hide_toplevel) {
+    gtk_widget_hide(toplevel);
+  }
+
   g_object_ref(view_widget);
   gtk_container_remove(GTK_CONTAINER(parent), view_widget);
 
@@ -235,10 +243,15 @@ static GtkOverlay* ensure_overlay(WebviewAllLinuxPlugin* self) {
   gtk_widget_set_hexpand(view_widget, TRUE);
   gtk_widget_set_vexpand(view_widget, TRUE);
   gtk_container_add(GTK_CONTAINER(overlay), view_widget);
+  gtk_widget_realize(overlay);
+  gtk_widget_realize(view_widget);
   gtk_widget_show(overlay);
   gtk_widget_show(view_widget);
   gtk_widget_queue_resize(overlay);
   gtk_widget_queue_resize(parent);
+  if (hide_toplevel) {
+    gtk_widget_show(toplevel);
+  }
   g_object_unref(view_widget);
 
   g_signal_connect(view_widget, "size-allocate",
