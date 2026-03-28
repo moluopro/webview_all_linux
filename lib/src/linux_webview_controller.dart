@@ -813,11 +813,13 @@ class _LinuxPlatformWebViewState extends State<_LinuxPlatformWebView>
     with WidgetsBindingObserver {
   Rect _lastRect = Rect.zero;
   bool _attached = false;
+  bool _paintedThisFrame = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scheduleFrameVisibilityCheck();
   }
 
   @override
@@ -839,10 +841,30 @@ class _LinuxPlatformWebViewState extends State<_LinuxPlatformWebView>
     unawaited(widget.controller.setFrame(rect, visible: visible));
   }
 
+  void _handlePaint(Rect rect) {
+    _paintedThisFrame = true;
+    if (!_attached || rect != _lastRect) {
+      _pushRect(rect, visible: true);
+    }
+  }
+
+  void _scheduleFrameVisibilityCheck() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if (!_paintedThisFrame && _attached) {
+        _pushRect(Rect.zero, visible: false);
+      }
+      _paintedThisFrame = false;
+      _scheduleFrameVisibilityCheck();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return _LinuxGeometryObserver(
-      onGeometry: (Rect rect) => _pushRect(rect, visible: true),
+      onPaint: _handlePaint,
       onDetached: () => _pushRect(Rect.zero, visible: false),
       child: const SizedBox.expand(),
     );
@@ -851,20 +873,17 @@ class _LinuxPlatformWebViewState extends State<_LinuxPlatformWebView>
 
 class _LinuxGeometryObserver extends SingleChildRenderObjectWidget {
   const _LinuxGeometryObserver({
-    required this.onGeometry,
+    required this.onPaint,
     required this.onDetached,
     required Widget child,
   }) : super(child: child);
 
-  final ValueChanged<Rect> onGeometry;
+  final ValueChanged<Rect> onPaint;
   final VoidCallback onDetached;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return _LinuxGeometryRenderBox(
-      onGeometry: onGeometry,
-      onDetached: onDetached,
-    );
+    return _LinuxGeometryRenderBox(onPaint: onPaint, onDetached: onDetached);
   }
 
   @override
@@ -873,24 +892,23 @@ class _LinuxGeometryObserver extends SingleChildRenderObjectWidget {
     covariant _LinuxGeometryRenderBox renderObject,
   ) {
     renderObject
-      ..onGeometry = onGeometry
+      ..onPaint = onPaint
       ..onDetached = onDetached;
   }
 }
 
 class _LinuxGeometryRenderBox extends RenderProxyBox {
   _LinuxGeometryRenderBox({
-    required ValueChanged<Rect> onGeometry,
+    required ValueChanged<Rect> onPaint,
     required VoidCallback onDetached,
-  }) : _onGeometry = onGeometry,
+  }) : _onPaint = onPaint,
        _onDetached = onDetached;
 
-  Rect _lastReportedRect = Rect.fromLTWH(-1, -1, -1, -1);
-  ValueChanged<Rect> _onGeometry;
+  ValueChanged<Rect> _onPaint;
   VoidCallback _onDetached;
 
-  set onGeometry(ValueChanged<Rect> value) {
-    _onGeometry = value;
+  set onPaint(ValueChanged<Rect> value) {
+    _onPaint = value;
   }
 
   set onDetached(VoidCallback value) {
@@ -918,10 +936,7 @@ class _LinuxGeometryRenderBox extends RenderProxyBox {
       math.max(topLeft.dx, bottomRight.dx),
       math.max(topLeft.dy, bottomRight.dy),
     );
-    if (rect != _lastReportedRect) {
-      _lastReportedRect = rect;
-      _onGeometry(rect);
-    }
+    _onPaint(rect);
   }
 }
 

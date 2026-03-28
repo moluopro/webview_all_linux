@@ -107,6 +107,8 @@ with:
 
   g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb), self);
   gtk_widget_realize(GTK_WIDGET(view));
+
+  fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 ```
 
 Do not move `FlView* view = fl_view_new(project);` above the `project`

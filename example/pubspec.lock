@@ -227,14 +227,14 @@ packages:
       path: "../../webview_all"
       relative: true
     source: path
-    version: "0.9.3"
+    version: "1.0.2"
   webview_all_linux:
     dependency: "direct overridden"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.5.2"
+    version: "0.5.3"
   webview_all_web:
     dependency: transitive
     description:
